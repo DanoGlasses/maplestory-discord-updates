@@ -31,31 +31,34 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
     console.log('DEBUG:', debug);
 
 const latest = await page.evaluate(() => {
-  // The forum post list container
-  const board = document.querySelector('.board_list');
+  // All forum post links follow this URL pattern
+  const candidates = Array.from(document.querySelectorAll('a'))
+    .filter(a =>
+      a.href.includes('/board_view') &&
+      a.innerText.trim().length > 0
+    )
+    .map(a => {
+      const rect = a.getBoundingClientRect();
+      return {
+        title: a.innerText.trim(),
+        link: a.href,
+        top: rect.top,
+        visible: rect.top > 0 && rect.bottom > 0
+      };
+    })
+    .filter(a => a.visible);
 
-  if (!board) return null;
+  if (candidates.length === 0) return null;
 
-  // Get all post title links inside the board
-  const links = Array.from(
-    board.querySelectorAll('a[href*="board_view"]')
-  );
-
-  if (links.length === 0) return null;
-
-  // Skip pinned notices (they contain a badge / icon)
-  const firstRealPost = links.find(link => {
-    const row = link.closest('tr');
-    return row && !row.classList.contains('notice');
-  });
-
-  if (!firstRealPost) return null;
+  // Sort by vertical position — topmost visible post is newest
+  candidates.sort((a, b) => a.top - b.top);
 
   return {
-    title: firstRealPost.innerText.trim(),
-    link: firstRealPost.href
+    title: candidates[0].title,
+    link: candidates[0].link
   };
 });
+
 
     if (!latest) {
       console.log('No forum post found.');

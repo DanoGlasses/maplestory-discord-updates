@@ -1,3 +1,5 @@
+console.log("SCRIPT FILE LOADED");
+
 import { chromium } from 'playwright';
 import fetch from 'node-fetch';
 import fs from 'fs';

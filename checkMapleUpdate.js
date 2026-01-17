@@ -30,22 +30,18 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 
     console.log('DEBUG:', debug);
 
-    const latest = await page.evaluate(() => {
-      const rows = Array.from(document.querySelectorAll('tr'));
-      const postRow = rows.find(r => r.querySelector('a'));
+const latest = await page.evaluate(() => {
+  const links = Array.from(document.querySelectorAll('a'))
+    .filter(a => a.href.includes('board_view'));
 
-      if (!postRow) return null;
+  if (links.length === 0) return null;
 
-      const linkEl = postRow.querySelector('a');
-      const title = linkEl.innerText.trim();
-      let link = linkEl.getAttribute('href');
+  const linkEl = links[0];
+  const title = linkEl.innerText.trim();
+  const link = linkEl.href;
 
-      if (link && !link.startsWith('http')) {
-        link = 'https://forum.nexon.com' + link;
-      }
-
-      return { title, link };
-    });
+  return { title, link };
+});
 
     if (!latest) {
       console.log('No forum post found.');

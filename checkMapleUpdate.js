@@ -31,21 +31,59 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
     console.log('DEBUG:', debug);
 
 const latest = await page.evaluate(() => {
-  // All forum post links follow this URL pattern
-  const candidates = Array.from(document.querySelectorAll('a'))
+  const links = Array.from(document.querySelectorAll('a'))
     .filter(a =>
       a.href.includes('/board_view') &&
       a.innerText.trim().length > 0
     )
     .map(a => {
-      const rect = a.getBoundingClientRect();
+      const r = a.getBoundingClientRect();
       return {
         title: a.innerText.trim(),
         link: a.href,
-        top: rect.top,
-        visible: rect.top > 0 && rect.bottom > 0
+        top: r.top,
+        left: r.left,
+        height: r.height,
+        visible: r.top > 0 && r.bottom > 0
       };
     })
+    .filter(a => a.visible);
+
+  if (links.length === 0) return null;
+
+  /*
+    Group links by vertical proximity.
+    The real post list has MANY items close together.
+  */
+  const groups = [];
+  const threshold = 25;
+
+  for (const link of links) {
+    let placed = false;
+    for (const group of groups) {
+      if (Math.abs(group[0].top - link.top) < threshold) {
+        group.push(link);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) groups.push([link]);
+  }
+
+  // Sort groups by size (largest group = real post list)
+  groups.sort((a, b) => b.length - a.length);
+
+  const postList = groups[0];
+
+  // Newest post = top-most item in that list
+  postList.sort((a, b) => a.top - b.top);
+
+  return {
+    title: postList[0].title,
+    link: postList[0].link
+  };
+});
+
 
     .filter(a => a.visible);
 

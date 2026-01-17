@@ -100,18 +100,6 @@ const latest = await page.evaluate(() => {
   };
 });
 
-  if (candidates.length === 0) return null;
-
-  // Sort by vertical position — topmost visible post is newest
-  candidates.sort((a, b) => a.top - b.top);
-
-  return {
-    title: candidates[0].title,
-    link: candidates[0].link
-  };
-});
-
-
     if (!latest) {
       console.log('No forum post found.');
       return;

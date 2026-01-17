@@ -7,50 +7,74 @@ const LAST_FILE = 'last_update.txt';
 const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 
 (async () => {
-  const browser = await chromium.launch();
+  console.log('Starting MapleStory Idle update check...');
+
+  const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
-  await page.goto(UPDATE_PAGE, { waitUntil: 'networkidle' });
+  try {
+    await page.goto(UPDATE_PAGE, { waitUntil: 'domcontentloaded' });
 
-const latest = await page.evaluate(() => {
-  const firstRow = document.querySelector('table.board_list tbody tr');
-  if (!firstRow) return null;
+    // IMPORTANT: wait for the board to exist
+    await page.waitForTimeout(5000);
 
-  const linkElement = firstRow.querySelector('td.subject a');
-  const title = linkElement?.innerText.trim();
-  const link = linkElement ? linkElement.href : null;
+    const debug = await page.evaluate(() => {
+      return {
+        title: document.title,
+        rowCount: document.querySelectorAll('tr').length,
+        hasLinks: document.querySelectorAll('a').length
+      };
+    });
 
-  return { title, link };
-});
+    console.log('DEBUG:', debug);
 
-  await browser.close();
+    const latest = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('tr'));
+      const postRow = rows.find(r => r.querySelector('a'));
 
-  if (!latest) return;
+      if (!postRow) return null;
 
-  let last = '';
-  if (fs.existsSync(LAST_FILE)) {
-    last = fs.readFileSync(LAST_FILE, 'utf8');
+      const linkEl = postRow.querySelector('a');
+      const title = linkEl.innerText.trim();
+      let link = linkEl.getAttribute('href');
+
+      if (link && !link.startsWith('http')) {
+        link = 'https://forum.nexon.com' + link;
+      }
+
+      return { title, link };
+    });
+
+    if (!latest) {
+      console.log('No forum post found.');
+      return;
+    }
+
+    console.log('LATEST FOUND:', latest);
+
+    let last = '';
+    if (fs.existsSync(LAST_FILE)) {
+      last = fs.readFileSync(LAST_FILE, 'utf8');
+    }
+
+    if (latest.link === last) {
+      console.log('No new update.');
+      return;
+    }
+
+    await fetch(WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `📰 **New MapleStory Idle Update**\n${latest.title}\n${latest.link}`
+      })
+    });
+
+    fs.writeFileSync(LAST_FILE, latest.link);
+    console.log('Posted to Discord!');
+  } catch (err) {
+    console.error('SCRIPT ERROR:', err);
+  } finally {
+    await browser.close();
   }
-
-  if (latest.link === last) {
-    console.log('No new MapleStory update.');
-    return;
-  }
-
-  await fetch(WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      embeds: [{
-        title: latest.title,
-        url: latest.link,
-        color: 3447003,
-        footer: { text: 'MapleStory Updates' },
-        timestamp: new Date().toISOString()
-      }]
-    })
-  });
-
-  fs.writeFileSync(LAST_FILE, latest.link);
-  console.log('New update posted to Discord!');
 })();

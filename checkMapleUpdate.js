@@ -15,7 +15,6 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
   const page = await browser.newPage();
 
   try {
-    await page.setViewport({ width: 1280, height: 800 });
     await page.goto(UPDATE_PAGE, { waitUntil: 'domcontentloaded' });
 
     // IMPORTANT: wait for the board to exist

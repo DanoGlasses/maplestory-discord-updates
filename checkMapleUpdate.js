@@ -30,10 +30,9 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 
     console.log('DEBUG:', debug);
 
-const latest = await page.evaluate(() => {
-  const MIN_TOP = 300; // ignore featured / header posts
+const posts = await page.evaluate(() => {
+  const MIN_TOP = 300;
 
-  // 1. Collect all real forum post links below header area
   const links = Array.from(document.querySelectorAll('a'))
     .filter(a =>
       a.href &&
@@ -46,16 +45,14 @@ const latest = await page.evaluate(() => {
       return {
         title: a.innerText.trim(),
         link: a.href,
-        top: r.top,
-        bottom: r.bottom
+        top: r.top
       };
     })
-    // 🔑 THIS IS THE IMPORTANT FILTER
-    .filter(a => a.top > MIN_TOP && a.bottom > 0);
+    .filter(a => a.top > MIN_TOP);
 
-  if (links.length === 0) return null;
+  if (links.length === 0) return [];
 
-  // 2. Group by vertical proximity
+  // Group by vertical proximity
   const groups = [];
   const threshold = 30;
 
@@ -71,47 +68,61 @@ const latest = await page.evaluate(() => {
     if (!placed) groups.push([link]);
   }
 
-  if (groups.length === 0) return null;
-
-  // 3. Largest group = real update list
+  // Largest group = real update list
   groups.sort((a, b) => b.length - a.length);
   const postList = groups[0];
 
-  // 4. Newest update = top-most in that list
+  // Sort newest → oldest (top → bottom)
   postList.sort((a, b) => a.top - b.top);
 
-  return {
-    title: postList[0].title,
-    link: postList[0].link
-  };
+  return postList;
 });
 
-    if (!latest) {
-      console.log('No forum post found.');
-      return;
-    }
+if (!posts || posts.length === 0) {
+  console.log('No forum posts found.');
+  return;
+}
 
-    console.log('LATEST FOUND:', latest);
+let last = '';
+if (fs.existsSync(LAST_FILE)) {
+  last = fs.readFileSync(LAST_FILE, 'utf8').trim();
+}
 
-    let last = '';
-    if (fs.existsSync(LAST_FILE)) {
-      last = fs.readFileSync(LAST_FILE, 'utf8');
-    }
+// Find new posts
+let newPosts = [];
+if (last) {
+  const lastIndex = posts.findIndex(p => p.link === last);
+  if (lastIndex === -1) {
+    // Last post not found — treat everything as new
+    newPosts = posts.slice().reverse();
+  } else {
+    newPosts = posts.slice(0, lastIndex).reverse();
+  }
+} else {
+  // First run — post only the newest
+  newPosts = [posts[0]];
+}
 
-    if (latest.link === last) {
-      console.log('No new update.');
-      return;
-    }
+if (newPosts.length === 0) {
+  console.log('No new updates.');
+  return;
+}
 
-    await fetch(WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `📰 **New MapleStory Idle Update**\n${latest.title}\n${latest.link}`
-      })
-    });
+// Post oldest → newest
+for (const post of newPosts) {
+  await fetch(WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: `📰 **New MapleStory Idle Update**\n${post.title}\n${post.link}`
+    })
+  });
+  console.log('Posted:', post.title);
+}
 
-    fs.writeFileSync(LAST_FILE, latest.link);
+// Save newest post
+fs.writeFileSync(LAST_FILE, posts[0].link);
+
     console.log('Posted to Discord!');
   } catch (err) {
     console.error('SCRIPT ERROR:', err);

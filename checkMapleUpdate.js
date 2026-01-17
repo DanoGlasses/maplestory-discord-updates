@@ -100,9 +100,6 @@ const latest = await page.evaluate(() => {
   };
 });
 
-
-    .filter(a => a.visible);
-
   if (candidates.length === 0) return null;
 
   // Sort by vertical position — topmost visible post is newest

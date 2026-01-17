@@ -31,46 +31,67 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
     console.log('DEBUG:', debug);
 
 const latest = await page.evaluate(() => {
-  const links = Array.from(document.querySelectorAll('a'))
-    .filter(a =>
+  // 1. Get all links
+  const allLinks = Array.from(document.querySelectorAll('a'));
+
+  // 2. Keep only forum post links with text
+  const forumLinks = allLinks.filter(a => {
+    return (
+      a.href &&
       a.href.includes('/board_view') &&
+      a.innerText &&
       a.innerText.trim().length > 0
-    )
-    .map(a => {
-      const r = a.getBoundingClientRect();
-      return {
-        title: a.innerText.trim(),
-        link: a.href,
-        top: r.top,
-        visible: r.top > 0 && r.bottom > 0
-      };
-    })
-    .filter(a => a.visible);
+    );
+  });
 
-  if (links.length === 0) return null;
+  // 3. Map links to usable objects
+  const mapped = forumLinks.map(a => {
+    const r = a.getBoundingClientRect();
+    return {
+      title: a.innerText.trim(),
+      link: a.href,
+      top: r.top,
+      bottom: r.bottom,
+      visible: r.top > 0 && r.bottom > 0
+    };
+  });
 
-  // Group links by vertical proximity
+  // 4. Only visible links
+  const visibleLinks = mapped.filter(a => a.visible);
+
+  if (visibleLinks.length === 0) {
+    return null;
+  }
+
+  // 5. Group by vertical position (real post list is the densest group)
   const groups = [];
   const threshold = 30;
 
-  for (const link of links) {
-    let placed = false;
+  for (const link of visibleLinks) {
+    let added = false;
+
     for (const group of groups) {
       if (Math.abs(group[0].top - link.top) < threshold) {
         group.push(link);
-        placed = true;
+        added = true;
         break;
       }
     }
-    if (!placed) groups.push([link]);
+
+    if (!added) {
+      groups.push([link]);
+    }
   }
 
-  if (groups.length === 0) return null;
+  if (groups.length === 0) {
+    return null;
+  }
 
-  // Largest vertical cluster = real post list
+  // 6. Largest group = actual forum list
   groups.sort((a, b) => b.length - a.length);
   const postList = groups[0];
 
+  // 7. Newest post = top-most in that list
   postList.sort((a, b) => a.top - b.top);
 
   return {
@@ -78,6 +99,7 @@ const latest = await page.evaluate(() => {
     link: postList[0].link
   };
 });
+
 
     .filter(a => a.visible);
 

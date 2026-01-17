@@ -42,8 +42,6 @@ const latest = await page.evaluate(() => {
         title: a.innerText.trim(),
         link: a.href,
         top: r.top,
-        left: r.left,
-        height: r.height,
         visible: r.top > 0 && r.bottom > 0
       };
     })
@@ -51,12 +49,9 @@ const latest = await page.evaluate(() => {
 
   if (links.length === 0) return null;
 
-  /*
-    Group links by vertical proximity.
-    The real post list has MANY items close together.
-  */
+  // Group links by vertical proximity
   const groups = [];
-  const threshold = 25;
+  const threshold = 30;
 
   for (const link of links) {
     let placed = false;
@@ -70,12 +65,12 @@ const latest = await page.evaluate(() => {
     if (!placed) groups.push([link]);
   }
 
-  // Sort groups by size (largest group = real post list)
-  groups.sort((a, b) => b.length - a.length);
+  if (groups.length === 0) return null;
 
+  // Largest vertical cluster = real post list
+  groups.sort((a, b) => b.length - a.length);
   const postList = groups[0];
 
-  // Newest post = top-most item in that list
   postList.sort((a, b) => a.top - b.top);
 
   return {
@@ -83,7 +78,6 @@ const latest = await page.evaluate(() => {
     link: postList[0].link
   };
 });
-
 
     .filter(a => a.visible);
 

@@ -31,16 +31,30 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
     console.log('DEBUG:', debug);
 
 const latest = await page.evaluate(() => {
-  const links = Array.from(document.querySelectorAll('a'))
-    .filter(a => a.href.includes('board_view'));
+  // The forum post list container
+  const board = document.querySelector('.board_list');
+
+  if (!board) return null;
+
+  // Get all post title links inside the board
+  const links = Array.from(
+    board.querySelectorAll('a[href*="board_view"]')
+  );
 
   if (links.length === 0) return null;
 
-  const linkEl = links[0];
-  const title = linkEl.innerText.trim();
-  const link = linkEl.href;
+  // Skip pinned notices (they contain a badge / icon)
+  const firstRealPost = links.find(link => {
+    const row = link.closest('tr');
+    return row && !row.classList.contains('notice');
+  });
 
-  return { title, link };
+  if (!firstRealPost) return null;
+
+  return {
+    title: firstRealPost.innerText.trim(),
+    link: firstRealPost.href
+  };
 });
 
     if (!latest) {

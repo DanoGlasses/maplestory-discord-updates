@@ -24,7 +24,7 @@ jobs:
       - name: Run update checker
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: node checkMapleUpdate.js
+        run: node ./checkMapleUpdate.js
 
       - name: Save last update
         run: |

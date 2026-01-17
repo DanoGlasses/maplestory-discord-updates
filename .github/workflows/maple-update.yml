@@ -1,0 +1,35 @@
+name: MapleStory Discord Updates
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx playwright install chromium
+
+      - name: Run update checker
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node checkMapleUpdate.js
+
+      - name: Save last update
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add last_update.txt
+          git commit -m "Track latest MapleStory update" || true
+          git push

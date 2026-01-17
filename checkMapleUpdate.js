@@ -31,33 +31,21 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
     console.log('DEBUG:', debug);
 
 const latest = await page.evaluate(() => {
-  // Grab only real forum post links (thread links)
-  const links = Array.from(document.querySelectorAll(
-    'a[href*="board_view"][href*="thread="]'
-  ));
-
-  const posts = links
+  // All forum post links follow this URL pattern
+  const candidates = Array.from(document.querySelectorAll('a'))
+    .filter(a =>
+      a.href.includes('/board_view') &&
+      a.innerText.trim().length > 0
+    )
     .map(a => {
       const rect = a.getBoundingClientRect();
       return {
         title: a.innerText.trim(),
         link: a.href,
         top: rect.top,
-        visible:
-          rect.top > 0 &&
-          rect.bottom > 0 &&
-          a.innerText.trim().length > 0
+        visible: rect.top > 0 && rect.bottom > 0
       };
     })
-    .filter(p => p.visible);
-
-  if (posts.length === 0) return null;
-
-  // Sort by screen position (top = newest)
-  posts.sort((a, b) => a.top - b.top);
-
-  return posts[0];
-});
 
     .filter(a => a.visible);
 

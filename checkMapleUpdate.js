@@ -242,4 +242,3 @@ console.log(`Posted ${newPosts.length} update(s) to Discord.`);
     await browser.close();
   }
 })();
- 

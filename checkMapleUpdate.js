@@ -99,8 +99,9 @@ if (last) {
     newPosts = posts.slice(0, lastIndex).reverse();
   }
 } else {
-  // First run — post only the newest
-  newPosts = [posts[0]];
+  console.log('First run detected — initializing without posting.');
+  fs.writeFileSync(LAST_FILE, posts[0].link);
+  return;
 }
 
 if (newPosts.length === 0) {
@@ -109,6 +110,7 @@ if (newPosts.length === 0) {
 }
 
 // Post oldest → newest
+    newPosts = newPosts.slice(0, 5);
 for (const post of newPosts) {
   await fetch(WEBHOOK, {
     method: 'POST',
@@ -123,7 +125,7 @@ for (const post of newPosts) {
 // Save newest post
 fs.writeFileSync(LAST_FILE, posts[0].link);
 
-    console.log('Posted to Discord!');
+console.log(`Posted ${newPosts.length} update(s) to Discord.`);
   } catch (err) {
     console.error('SCRIPT ERROR:', err);
   } finally {

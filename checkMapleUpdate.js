@@ -16,6 +16,12 @@ const BOARDS = [
     url: 'https://forum.nexon.com/maplestoryidle/board_list?board=6675',
     lastFile: 'last_patch.txt',
     emoji: '🛠️'
+  },
+  {
+    name: 'Announcements',
+    url: 'https://forum.nexon.com/maplestoryidle/board_list?board=6653',
+    lastFile: 'last_announcement.txt',
+    emoji: '📢'
   }
 ];
 
@@ -81,6 +87,7 @@ async function checkBoard(board, page) {
     last = fs.readFileSync(board.lastFile, 'utf8').trim();
   }
 
+  // First run: initialize only
   if (!last) {
     console.log(`First run detected for ${board.name} — initializing.`);
     fs.writeFileSync(board.lastFile, posts[0].link);

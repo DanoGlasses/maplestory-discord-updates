@@ -15,7 +15,7 @@ const BOARDS = [
   {
     name: "Event",
     url: "https://forum.nexon.com/maplestoryidle/board_list?board=6676",
-    lastFile: "last_event.txt",
+    lastFile: "last_update.txt",
     emoji: "🎉",
   },
   {
@@ -41,7 +41,6 @@ async function checkBoard(board, page) {
 
   await page.goto(board.url, { waitUntil: "networkidle" });
 
-  // Wait until posts actually exist
   await page.waitForSelector('a[href*="board_view"]', {
     timeout: 15000,
   });
@@ -50,88 +49,18 @@ async function checkBoard(board, page) {
     return Array.from(
       document.querySelectorAll('a[href*="board_view"]')
     )
-      .map((a) => ({
+      .map(a => ({
         title: a.innerText.trim(),
         link: a.href,
       }))
-      .filter((p) => p.title.length > 5)
-      // remove duplicates
+      .filter(p => p.title.length > 5)
       .filter(
         (p, i, arr) =>
-          i === arr.findIndex((x) => x.link === p.link)
+          i === arr.findIndex(x => x.link === p.link)
       );
   });
 
   console.log(`${board.name} posts found: ${posts.length}`);
 
-  if (!posts.length) {
-    console.log(`No posts detected for ${board.name}`);
-    return;
-  }
-
-  let last = "";
-  if (fs.existsSync(board.lastFile)) {
-    last = fs.readFileSync(board.lastFile, "utf8").trim();
-  }
-
-  // First run = initialize only
-  if (!last) {
-    console.log(`First run for ${board.name}. Saving baseline.`);
-    fs.writeFileSync(board.lastFile, posts[0].link);
-    return;
-  }
-
-  const newPosts = [];
-  for (const post of posts) {
-    if (post.link === last) break;
-    newPosts.push(post);
-  }
-
-  if (!newPosts.length) {
-    console.log(`No new ${board.name} updates.`);
-    return;
-  }
-
-  // Post oldest → newest
-  newPosts.reverse();
-
-  for (const post of newPosts) {
-    await fetch(WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: `${board.emoji} **New MapleStory Idle ${board.name} Update**\n**${post.title}**\n${post.link}`,
-      }),
-    });
-
-    console.log(`Posted ${board.name}: ${post.title}`);
-  }
-
-  // Save newest post
-  fs.writeFileSync(
-    board.lastFile,
-    newPosts[newPosts.length - 1].link
-  );
-}
-
-// ======================
-// RUNNER
-// ======================
-
-(async () => {
-  console.log("Starting MapleStory Idle update check...");
-
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-
-  try {
-    for (const board of BOARDS) {
-      await checkBoard(board, page);
-    }
-  } catch (err) {
-    console.error("SCRIPT ERROR:", err);
-  } finally {
-    await browser.close();
-  }
-})();
+  if (!posts.length) return;
 

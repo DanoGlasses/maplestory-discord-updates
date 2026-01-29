@@ -33,6 +33,15 @@ const BOARDS = [
 ];
 
 // ======================
+// HELPERS
+// ======================
+
+function extractThreadId(url) {
+  const match = url.match(/thread=(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
+// ======================
 // CORE LOGIC
 // ======================
 
@@ -49,45 +58,53 @@ async function checkBoard(board, page) {
     return Array.from(
       document.querySelectorAll('a[href*="board_view"]')
     )
-      .map((a) => ({
+      .map(a => ({
         title: a.innerText.trim(),
         link: a.href,
       }))
-      .filter((p) => p.title.length > 5)
+      .filter(p => p.title.length > 5)
       .filter(
         (p, i, arr) =>
-          i === arr.findIndex((x) => x.link === p.link)
+          i === arr.findIndex(x => x.link === p.link)
       );
   });
 
-  console.log(`${board.name} posts found: ${posts.length}`);
-
-  if (!posts.length) return;
-
-  let last = "";
-  if (fs.existsSync(board.lastFile)) {
-    last = fs.readFileSync(board.lastFile, "utf8").trim();
+  if (!posts.length) {
+    console.log(`No posts found for ${board.name}`);
+    return;
   }
 
-  // First run = baseline
-  if (!last) {
+  // Sort newest → oldest using thread ID
+  posts.sort(
+    (a, b) =>
+      extractThreadId(b.link) - extractThreadId(a.link)
+  );
+
+  let lastLink = "";
+  if (fs.existsSync(board.lastFile)) {
+    lastLink = fs.readFileSync(board.lastFile, "utf8").trim();
+  }
+
+  const lastId = extractThreadId(lastLink);
+
+  // First run → baseline only
+  if (!lastId) {
     console.log(`First run for ${board.name}. Saving baseline.`);
     fs.writeFileSync(board.lastFile, posts[0].link);
     return;
   }
 
-  const newPosts = [];
-  for (const post of posts) {
-    if (post.link === last) break;
-    newPosts.push(post);
-  }
+  const newPosts = posts
+    .filter(p => extractThreadId(p.link) > lastId)
+    .sort(
+      (a, b) =>
+        extractThreadId(a.link) - extractThreadId(b.link)
+    ); // oldest → newest
 
   if (!newPosts.length) {
     console.log(`No new ${board.name} updates.`);
     return;
   }
-
-  newPosts.reverse();
 
   for (const post of newPosts) {
     await fetch(WEBHOOK, {
@@ -101,10 +118,8 @@ async function checkBoard(board, page) {
     console.log(`Posted ${board.name}: ${post.title}`);
   }
 
-  fs.writeFileSync(
-    board.lastFile,
-    newPosts[newPosts.length - 1].link
-  );
+  // Save newest post
+  fs.writeFileSync(board.lastFile, posts[0].link);
 }
 
 // ======================
@@ -127,3 +142,4 @@ async function checkBoard(board, page) {
     await browser.close();
   }
 })();
+
